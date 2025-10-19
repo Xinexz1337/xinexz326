@@ -1,0 +1,177 @@
+
+:root {
+  --bg: #0b1220;
+  --card: #111a2e;
+  --accent: #22d3ee;
+  --text: #e5e7eb;
+  --muted: #7f8ea3;
+}
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+.container {
+    max-width: 95%;
+    margin: 0 auto;
+    padding: 16px;
+    }
+
+#topbar {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 16px; background:rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.07);
+  position: sticky; top:0; backdrop-filter: blur(6px);
+}
+#topbar .brand { color: var(--text); text-decoration: none; font-weight:700; }
+#topbar .nav a, #topbar .nav span { color: var(--text); margin-left: 12px; text-decoration: none; }
+#topbar .hello { color: var(--muted); }
+
+.controls button {
+  margin-right:8px; padding:8px 10px; background:var(--card); color:var(--text);
+  border:1px solid rgba(255,255,255,0.1); border-radius:10px;
+}
+.controls button:hover { border-color: var(--accent); }
+
+.grid {
+  display:grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(160px, 1fr);
+  gap:10px; padding:12px; margin-top: 10px;
+}
+.cell {
+  background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; overflow:hidden; position:relative;
+  display:flex; flex-direction:column;
+}
+.cell-header {
+  font-size:14px; color:var(--muted); padding:6px 10px; background:rgba(0,0,0,0.25);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.cell video {
+  width:100%; height:100%; object-fit:cover; background:#000;
+  flex:1; transform: scaleX(-1);
+}
+.name { color:var(--text); font-weight:600; }
+.free { opacity: 0.6; }
+
+.form { display:flex; flex-direction:column; max-width: 360px; gap:8px; }
+.form input, .form button {
+  padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:var(--card); color:var(--text);
+}
+.table { width:100%; border-collapse: collapse; }
+.table th, .table td { border-bottom:1px solid rgba(255,255,255,0.08); padding:8px; text-align:left; }
+.flash .msg { margin: 8px 0; padding:8px 10px; border-radius:8px; background: rgba(255,255,255,0.06); }
+.msg.error { border: 1px solid #ef4444; }
+.msg.ok { border: 1px solid #22c55e; }
+.muted { color: var(--muted); }
+
+.cell[data-slot="12"] {
+  border-color: rgba(255, 221, 87, 0.6);
+  box-shadow: 0 0 0 1px rgba(255, 221, 87, 0.25) inset;
+}
+.cell[data-slot="12"] .cell-header {
+  background: rgba(255, 221, 87, 0.08);
+}
+
+
+/* подсветка */
+.cell.nominated {
+    border-color: #b55454;;
+    box-shadow: 0 0 0 1px rgba(220,38,38,.35) inset;
+}
+
+.cell.nominated .cell-header {
+    background: rgb(177 56 56 / 75%);
+    color: #fff;
+    }
+
+
+/* бейдж внизу справа */
+.vote-badge {
+  position: absolute;
+  right: 10px; bottom: 10px;
+  padding: 6px 10px;
+  font-size: 12px; font-weight: 700; letter-spacing: .3px;
+  background: rgb(177 56 56 / 75%);
+  color:#fff;
+  border-radius: 8px;
+  display: none;   /* по умолчанию скрыт */
+  z-index: 2;
+}
+.cell.nominated .vote-badge { display: inline-block; }
+
+
+
+/* Общий бейдж и три состояния */
+.badge {
+  position: absolute; right: 10px; bottom: 10px;
+  padding: 6px 10px; font-size: 12px; font-weight: 700;
+  border-radius: 8px; display: none; z-index: 2; letter-spacing: .3px;
+}
+.cell.is-vote .badge     { display: inline-block; background: rgba(220,38,38,.9); color:#fff; }   /* ВЫСТАВЛЕН */
+.cell.is-expelled .badge { display: inline-block; background: rgba(234,179,8,.95); color:#111; }  /* ВЫГНАН */
+.cell.is-killed .badge   { display: inline-block; background: rgba(59,130,246,.95); color:#fff; } /* УБИТ */
+
+.cell.is-vote     { border-color: rgba(220,38,38,.85); box-shadow: 0 0 0 1px rgba(220,38,38,.35) inset; }
+.cell.is-expelled { box-shadow: 0 0 0 1px rgba(234,179,8,.35) inset; }
+.cell.is-killed   { box-shadow: 0 0 0 1px rgba(59,130,246,.35) inset; }
+
+.cell.is-vote .cell-header     { background: rgba(220,38,38,.75); color: #fff; }
+.cell.is-expelled .cell-header { background: rgba(234,179,8,.25); }
+.cell.is-killed .cell-header   { background: rgba(59,130,246,.25); }
+
+/* Простое контекст-меню ведущего */
+.host-menu {
+  position: fixed; background: #111a2e; color: #e5e7eb;
+  border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 6px; z-index: 50;
+}
+.host-menu button {
+  width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; color: inherit;
+  border-radius: 8px; cursor: pointer;
+}
+.host-menu button:hover { background: rgba(255,255,255,.06); }
+
+
+
+/* Шторка */
+.curtain {
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);               /* спрятана справа */
+  transition: transform .8s cubic-bezier(.22,1,.36,1);
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 14px;
+  z-index: 3;                                 /* над <video> */
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 10px;
+}
+
+.curtain-text {
+  margin-left: auto;
+  padding: 6px 10px;
+  font-size: 12px; font-weight: 800; letter-spacing: .3px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.35); color: #fff;
+}
+
+/* Цвета и включение анимации */
+.cell.is-expelled .curtain {
+    transform: translateX(0);
+}
+
+
+.fx-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;                           /* полностью закрывает */
+  display: none;                               /* включаем из JS */
+}
+
+
+.cell.is-killed .curtain {
+  background: linear-gradient(180deg, rgba(59,130,246,.85) 0%, rgba(37,99,235,.95) 100%);
+  transform: translateY(0);
+}
+
+/* Доп.эффект видео под шторкой */
+.cell.is-expelled video,
+.cell.is-killed   video {
+  filter: grayscale(.5) brightness(.7);
+  transition: filter .45s ease;
+}

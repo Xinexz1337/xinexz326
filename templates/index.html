@@ -1,0 +1,45 @@
+
+{% extends "base.html" %}
+{% block title %}Mafia by. Xienxz326{% endblock %}
+{% block content %}
+    <div id="controls" class="controls">
+      <select id="role">
+      <option value="player" selected>Игрок</option>
+      <option value="host">Ведущий</option>
+    </select>
+    <button id="joinBtn" {% if not current_user.is_authenticated %}disabled{% endif %}>Войти</button>
+    <button id="leaveBtn" disabled>Выйти</button>
+    <button id="muteVideo" disabled>📷 Выключить камеру</button>
+    <span id="status"></span>
+  </div>
+  {% if not current_user.is_authenticated %}
+    <p class="muted">Войдите, чтобы подключиться к комнате.</p>
+  {% endif %}
+  <div id="grid" class="grid">
+    <script>
+      for (let i=1;i<=12;i++){
+        document.write(`
+         <div class="cell" data-slot="${i}">
+          <span style="margin-left: 10px;" class="slot-num" id="num-${i}">${i}</span>
+          <div class="cell-header"><span class="name" id="name-${i}">Свободно</span></div>
+          <div class="badge" id="badge-${i}"></div>
+
+          <!-- Шторка и видео-эффект -->
+          <div class="curtain">
+            <video class="fx-video" playsinline muted></video>
+            <span class="curtain-text"></span>
+          </div>
+
+          <video id="video-${i}" autoplay playsinline muted></video>
+        </div>
+        `);
+      }
+    </script>
+  </div>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    const DEFAULT_ROOM = "mafia";
+    const CURRENT_USERNAME = "{{ current_user.username if current_user.is_authenticated else '' }}";
+  </script>
+  <script src="{{ url_for('static', filename='client.js') }}"></script>
+{% endblock %}

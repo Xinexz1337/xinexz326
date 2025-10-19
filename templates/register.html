@@ -1,0 +1,13 @@
+
+{% extends "base.html" %}
+{% block title %}Регистрация — Mafia{% endblock %}
+{% block content %}
+<h2>Регистрация</h2>
+<form method="post" class="form">
+  <label>Имя пользователя</label>
+  <input name="username" required maxlength="30">
+  <label>Пароль</label>
+  <input type="password" name="password" required>
+  <button type="submit">Создать аккаунт</button>
+</form>
+{% endblock %}

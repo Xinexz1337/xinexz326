@@ -1,0 +1,13 @@
+
+{% extends "base.html" %}
+{% block title %}Вход — Mafia{% endblock %}
+{% block content %}
+<h2>Вход</h2>
+<form method="post" class="form">
+  <label>Имя пользователя</label>
+  <input name="username" required maxlength="30">
+  <label>Пароль</label>
+  <input type="password" name="password" required>
+  <button type="submit">Войти</button>
+</form>
+{% endblock %}

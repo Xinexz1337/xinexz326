@@ -1,0 +1,20 @@
+
+{% extends "base.html" %}
+{% block title %}Статистика — Mafia{% endblock %}
+{% block content %}
+<h2>Лидеры</h2>
+<table class="table">
+  <thead><tr><th>#</th><th>Игрок</th><th>Игры</th><th>Победы</th><th>Win%</th></tr></thead>
+  <tbody>
+    {% for row in board %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ row.username }}</td>
+        <td>{{ row.games }}</td>
+        <td>{{ row.wins }}</td>
+        <td>{{ row.winrate }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
