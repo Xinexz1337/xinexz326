@@ -6,11 +6,22 @@ import os
 db = SQLAlchemy()
 
 def init_db(app):
-
-    uri = "sqlite:///E:/projects/xinexz326/mafia.sqlite3"
+    # 1) приоритет: DATABASE_URL из переменных среды
+    uri = os.environ.get("DATABASE_URL")
+    if not uri:
+        # 2) иначе — SQLite в instance/
+        db_file = os.path.join(app.instance_path, "mafia.sqlite3")
+        uri = f"sqlite:///{db_file}"
 
     app.config["SQLALCHEMY_DATABASE_URI"] = uri
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # для SQLite + SocketIO/многопоточности:
+    if uri.startswith("sqlite:///"):
+        app.config.setdefault("SQLALCHEMY_ENGINE_OPTIONS", {
+            "connect_args": {"check_same_thread": False}
+        })
+
     db.init_app(app)
     return db
 

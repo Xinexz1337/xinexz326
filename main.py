@@ -6,18 +6,22 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from database import init_db, db, User, Room, Game, GamePlayer, leaderboard
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__, template_folder="templates", static_folder="static",
+            instance_relative_config=True)
+
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY","dev-secret")
 init_db(app)
 
 
+os.makedirs(app.instance_path, exist_ok=True)
 
-
-try:
-    with app.app_context():
-        db.create_all()
-except Exception as e:
-    app.logger.warning(f"DB init skipped: {e}")
+with app.app_context():
+    db.create_all()
+    # сиды
+    from database import Room
+    if not Room.query.filter_by(code="mafia").first():
+        db.session.add(Room(code="mafia", title="Mafia Main Room"))
+        db.session.commit()
 
 
 with app.app_context():
