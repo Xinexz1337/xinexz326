@@ -305,6 +305,30 @@ def on_start_timer(data):
 
 
 
+@socketio.on("announce-event")
+def on_announce_event(data):
+    room_code = data.get("roomId", "mafia")
+    ev_type   = data.get("type")
+    slot      = int(data.get("slot", 0))
+
+    # только ведущий (#12)
+    meta = rooms_state.get(room_code, {}).get(request.sid)
+    if not meta or meta.get("slot") != 12:
+        return
+
+    # достанем имя цели (если есть)
+    name = None
+    room = rooms_state.get(room_code, {})
+    for sid, m in room.items():
+        if m.get("slot") == slot:
+            name = m.get("name")
+            break
+
+    # разошлём всем
+    socketio.emit("announce", {"type": ev_type, "slot": slot, "name": name or ""}, room=room_code)
+
+
+
 
 if __name__ == "__main__":
     socketio.run(app, debug=True)

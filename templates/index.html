@@ -12,7 +12,16 @@
   </div>
 
   <div id="controls" class="controls">
-    <select id="role">
+    <select id="role" style="
+    width: 100px;
+    align-items: center;
+    text-align: center;
+    height: 30px;
+    background: var(--card);
+    color: #4296ff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;">
+
       <option value="player" selected>Игрок</option>
       <option value="host">Ведущий</option>
     </select>
@@ -28,6 +37,17 @@
       <button id="start60">⏱️ 1:00</button>
       <button id="start30">⏱️ 0:30</button>
     </div>
+
+    <div id="hostAnnounce" style="display:none; gap:6px; margin-left:8px; display:inline-flex; align-items:center;">
+      <label style="opacity:.7">Цель:</label>
+      <select id="announceTarget"></select>
+      <button id="btnKilledDoc">💉 Убит Доктор</button>
+      <button id="btnKilledCop">🕵️ Убит Комиссар</button>
+      <button id="btnKilledTown">🙋 Убит Мирный</button>
+      <button id="btnExpelMafia">🔥 Выгнали Мафию</button>
+    </div>
+
+    <div id="globalAnnounce" class="global-annc" aria-hidden="true"></div>
 
     <!-- ДИСПЛЕЙ ТАЙМЕРА — виден всем -->
     <span id="timerDisplay" class="timer">00:00</span>

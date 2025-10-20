@@ -38,7 +38,7 @@
 
 .grid {
   display:grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(160px, 1fr);
-  gap:10px; padding:12px; margin-top: 10px;
+  gap:10px; padding:12px; margin-top: 10px; z-index: 2;
 }
 .cell {
   background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; overflow:hidden; position:relative;
@@ -50,7 +50,7 @@
 }
 .cell video {
   width:100%; height:100%; object-fit:cover; background:#000;
-  flex:1; transform: scaleX(-1);
+  flex:1; transform: scaleX(-1); z-index: 1;
 }
 .name { color:var(--text); font-weight:600; }
 .free { opacity: 0.6; }
@@ -186,7 +186,9 @@
 
 /* ====== ФОН ====== */
 .bg{
-  position: fixed; inset:0; z-index:-1; pointer-events:none;
+  position: fixed; inset:0;
+  z-index:0;
+  pointer-events:none;
   overflow:hidden; /* чтобы ничего не торчало за края */
 }
 
@@ -272,7 +274,7 @@ body.phase-night .bg-lake{ opacity:.9; }
 
 /* чтобы фон не перекрывал сетку: сетка выше фона */
 .grid { position:relative; z-index:1; }
-.controls { position:relative; z-index:1; }
+.controls { position:relative; z-index:2; }
 
 
 /* ===== СОЛНЦЕ ===== */
@@ -307,7 +309,7 @@ body.phase-day  .bg-moon { opacity:0; transform: translateY(-20px); }  /* на �
 
 .timer{
   display:inline-block;
-  min-width:76px;
+  min-width:150px;
   padding:6px 10px;
   margin-left:10px;
   text-align:center;
@@ -325,3 +327,74 @@ body.phase-day  .bg-moon { opacity:0; transform: translateY(-20px); }  /* на �
   background:rgba(220,38,38,.18);
   border-color:rgba(220,38,38,.5);
 }
+
+
+
+
+
+/* ===== ГЛОБАЛЬНЫЙ АНОНС ===== */
+.global-annc{
+  position: fixed; inset: 0; pointer-events: none;
+  display: none; align-items: center; justify-content: center;
+  z-index: 80;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,.6));
+  animation: gaFade .35s ease both;
+  z-index: 10;
+}
+@keyframes gaFade{ from{ opacity:0 } to{ opacity:1 } }
+
+.global-annc .card{
+  position: relative;
+  z-index: 10;
+  min-width: 520px; max-width: 80vw;
+  padding: 22px 26px;
+  border-radius: 16px;
+  color:#fff; text-align:center; font-weight:900; font-size:26px; letter-spacing:.6px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.15);
+  transform: scale(.95);
+  animation: popIn .25s cubic-bezier(.2,.8,.2,1) .1s both;
+}
+@keyframes popIn{ to { transform: scale(1) } }
+
+.global-annc .sub{
+  display:block; margin-top:6px; font-size:16px; font-weight:700; opacity:.9; z-index: 10;
+}
+
+/* Цветовые темы */
+.annc-doc   {
+    background: linear-gradient(135deg,#0ea5b7,#22d3ee);
+    z-index: 10;
+}
+
+.annc-cop   {
+    background: linear-gradient(135deg,#6d28d9,#a78bfa);
+    z-index: 10;
+}
+
+
+.annc-town  {
+    background: linear-gradient(135deg,#0f766e,#22c55e);
+    z-index: 10;
+}
+
+.annc-mafia {
+    background: linear-gradient(135deg,#7f1d1d,#ef4444);
+    z-index: 10;
+}
+
+/* Лучи/блики */
+.global-annc .card::before{
+  content:""; position:absolute; inset:-2px; border-radius:18px;
+  background: conic-gradient(from 0deg, rgba(255,255,255,.15), transparent 30%, transparent 70%, rgba(255,255,255,.15));
+  filter: blur(10px); opacity:.65; mix-blend-mode: screen;
+  animation: spin 3.5s linear infinite;
+}
+@keyframes spin{ to{ transform: rotate(360deg) } }
+
+/* Партиклы (простая конфетти-анимация) */
+.confetti-piece{
+  position:absolute; width:10px; height:14px; opacity:.9; transform: rotate(0deg);
+  animation: fall 1.4s linear forwards, sway .9s ease-in-out infinite alternate;
+}
+@keyframes fall{ to{ transform: translateY(420px) rotate(260deg) } }
+@keyframes sway{ from{ margin-left: -6px } to{ margin-left: 6px } }
