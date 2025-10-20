@@ -3,6 +3,10 @@ const socket = io();
 const roomId = DEFAULT_ROOM;
 const nominatedSlots = new Set();
 
+
+const togglePhaseBtn = document.getElementById("togglePhase");
+let phase = "day"; // локальное состояние (для подписи на кнопке)
+
 const iceServers = [
   { urls: "stun:stun.l.google.com:19302" }
 ];
@@ -231,14 +235,32 @@ socket.on("auth-required", ({message}) => {
   $("#joinBtn").disabled = false;
 });
 
-socket.on("joined", async ({ selfId, slot, peers: existingPeers=[] }) => {
-  myId = selfId;
-  mySlot = slot;
 
+
+function applyPhase(p){
+  phase = p;
+  document.body.classList.remove("phase-day","phase-night");
+  document.body.classList.add(p === "night" ? "phase-night" : "phase-day");
+  if (togglePhaseBtn) togglePhaseBtn.textContent = (p === "night") ? "🌞 День" : "🌗 Ночь";
+}
+
+// при загрузке — день
+applyPhase("day");
+
+
+
+socket.on("joined", async ({ selfId, slot, peers: existingPeers=[] }) => {
+  myId = selfId; mySlot = slot;
   attachStreamToSlot(localStream, mySlot, true, "Вы");
   $("#leaveBtn").disabled = false;
   $("#muteVideo").disabled = false;
-  status(`Вы в комнате (${roomId}). Ваш слот #${mySlot}. Участников: ${existingPeers.length + 1}`);
+
+  // ведущий видит кнопку
+  if (slot === 12) {
+    togglePhaseBtn.style.display = "inline-block";
+  } else {
+    togglePhaseBtn.style.display = "none";
+  }
 
   for (const p of existingPeers){
     peerMeta.set(p.sid, { name: p.name, slot: p.slot });
@@ -345,3 +367,72 @@ function stopFx(slot){
   const v = cell.querySelector(".fx-video");
   if (v){ v.pause(); v.removeAttribute("src"); v.load(); v.style.display="none"; }
 }
+
+// ведущий нажимает — шлём команду
+togglePhaseBtn?.addEventListener("click", () => {
+  if (mySlot !== 12) return; // только ведущий
+  const next = (phase === "day") ? "night" : "day";
+  socket.emit("set-phase", { roomId, phase: next });
+  // сервер всем подтвердит (включая отправителя) событием ниже
+});
+
+// всем прилетает новая фаза
+socket.on("phase-changed", ({ phase: p }) => {
+  applyPhase(p);
+});
+
+
+const timerDisplay = document.getElementById("timerDisplay");
+const hostTimerControls = document.getElementById("hostTimerControls");
+const start60Btn = document.getElementById("start60");
+const start30Btn = document.getElementById("start30");
+
+function formatMMSS(sec){
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec/60);
+  const s = sec % 60;
+  return `${String(m).padStart(1,'0')}:${String(s).padStart(2,'0')}`;
+}
+function setTimerUI(seconds, running){
+  timerDisplay.textContent = formatMMSS(seconds);
+  timerDisplay.classList.toggle("running", running && seconds>0);
+  timerDisplay.classList.toggle("ended", !running && seconds===0);
+}
+
+// по умолчанию пусто
+setTimerUI(0, false);
+
+// показать кнопки только ведущему
+socket.on("joined", async ({ selfId, slot, peers: existingPeers=[] }) => {
+  myId = selfId; mySlot = slot;
+  attachStreamToSlot(localStream, mySlot, true, "Вы");
+  $("#leaveBtn").disabled = false;
+  $("#muteVideo").disabled = false;
+
+  // видимость кнопок
+  hostTimerControls.style.display = (slot === 12) ? "inline-flex" : "none";
+  togglePhaseBtn.style.display = (slot === 12) ? "inline-block" : "none";
+
+  for (const p of existingPeers){
+    peerMeta.set(p.sid, { name: p.name, slot: p.slot });
+    await createPeerConnectionAndCall(p.sid, p.slot, p.name, true);
+  }
+});
+
+// нажатия ведущего
+start60Btn?.addEventListener("click", () => {
+  if (mySlot !== 12) return;
+  socket.emit("start-timer", { roomId, duration: 60 });
+});
+start30Btn?.addEventListener("click", () => {
+  if (mySlot !== 12) return;
+  socket.emit("start-timer", { roomId, duration: 30 });
+});
+
+// серверные события таймера
+socket.on("timer-update", ({ remaining }) => {
+  setTimerUI(remaining, remaining > 0);
+});
+socket.on("timer-finished", () => {
+  setTimerUI(0, false);
+});

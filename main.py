@@ -6,6 +6,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from database import init_db, db, User, Room, Game, GamePlayer, leaderboard
 
+import time
+from threading import Lock
+
 app = Flask(__name__, template_folder="templates", static_folder="static",
             instance_relative_config=True)
 
@@ -118,6 +121,8 @@ def on_join_room(data):
     if request.sid in rooms_state[room_code]:
         meta = rooms_state[room_code][request.sid]
         emit("joined", {"selfId": request.sid, "slot": meta["slot"]})
+        current_phase = rooms_phase.get(room_code, "day")
+        emit("phase-changed", {"phase": current_phase})
         return
 
     # выбор слота по роли
@@ -219,10 +224,92 @@ def on_moderate(data):
 
 
 
-# if __name__ == "__main__":
-#     socketio.run(app, debug=True)
+
+rooms_phase = {}  # {"mafia": "day"|"night"}
+
+@socketio.on("set-phase")
+def on_set_phase(data):
+    room_code = data.get("roomId", "mafia")
+    new_phase = data.get("phase", "day")
+    # только ведущий: проверяем, что sender = слот 12
+    # у тебя rooms_state[room_code][request.sid] -> {"slot": N, ...}
+    meta = rooms_state.get(room_code, {}).get(request.sid)
+    if not meta:
+        return
+    if meta.get("slot") != 12:
+        # не ведущий — игнор
+        return
+    # сохранить и разослать всем в комнате
+    rooms_phase[room_code] = new_phase
+    emit("phase-changed", {"phase": new_phase}, room=room_code)
+
+
+rooms_timer = {}  # { room_code: {"end": float, "gen": int} }
+rooms_timer_lock = Lock()
+
+def _timer_task(room_code, gen):
+    """Фоновая задача: раз в 1с шлёт оставшееся время всем в комнате."""
+    while True:
+        with rooms_timer_lock:
+            info = rooms_timer.get(room_code)
+            if not info or info.get("gen") != gen:
+                # таймер перезапущен/сбит
+                return
+            remaining = max(0, int(round(info["end"] - time.time())))
+        socketio.emit("timer-update", {"remaining": remaining}, room=room_code)
+        if remaining <= 0:
+            socketio.emit("timer-finished", {}, room=room_code)
+            # очищаем запись
+            with rooms_timer_lock:
+                cur = rooms_timer.get(room_code)
+                if cur and cur.get("gen") == gen:
+                    rooms_timer.pop(room_code, None)
+            return
+        socketio.sleep(1)
+
+
+@socketio.on("start-timer")
+def on_start_timer(data):
+    room_code = data.get("roomId", "mafia")
+    duration = int(data.get("duration", 0))
+
+    # только ведущий может
+    meta = rooms_state.get(room_code, {}).get(request.sid)
+    if not meta or meta.get("slot") != 12:
+        return
+
+    if duration not in (30, 60):
+        return
+
+    end_ts = time.time() + duration
+    with rooms_timer_lock:
+        cur = rooms_timer.get(room_code, {"gen": 0})
+        gen = cur.get("gen", 0) + 1
+        rooms_timer[room_code] = {"end": end_ts, "gen": gen}
+
+    # стартуем фоновую задачу под новый gen
+    socketio.start_background_task(_timer_task, room_code, gen)
+    # моментально отправим всем первое значение
+    socketio.emit("timer-update", {"remaining": duration}, room=room_code)
+
+# Когда кто-то входит в комнату — сразу отдать текущее значение (если идёт)
+# добавь это в конец твоего on_join_room, сразу после emit("joined", ...):
+    current = None
+    with rooms_timer_lock:
+        info = rooms_timer.get(room_code)
+        if info:
+            rem = max(0, int(round(info["end"] - time.time())))
+            current = rem
+    if current is not None:
+        emit("timer-update", {"remaining": current})
+
+
+
 
 if __name__ == "__main__":
-    import eventlet
-    import eventlet.wsgi
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    socketio.run(app, debug=True)
+
+# if __name__ == "__main__":
+#     import eventlet
+#     import eventlet.wsgi
+#     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
