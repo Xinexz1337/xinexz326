@@ -53,6 +53,62 @@
     <span id="timerDisplay" class="timer">00:00</span>
 
     <span id="status"></span>
+
+
+    <div id="hostVoting" style="display:none; gap:6px; margin-left:8px; align-items:center;">
+      <button id="startVoting">🗳️ Начать голосование</button>
+      <button id="stopVoting"  style="display:none;">✅ Завершить</button>
+
+      <span class="sep"></span>
+
+      <label style="opacity:.7">Кто:</label>
+      <select id="voteVoter"></select>
+      <label style="opacity:.7">Против:</label>
+      <select id="voteTarget"></select>
+      <button id="voteAdd">➕ Зачесть</button>
+      <button id="voteRemove">➖ Отменить</button>
+      <button id="votesClear">♻️ Сбросить всё</button>
+    </div>
+
+    <div id="hostFX" style="display:none; gap:6px; margin-left:8px; display:inline-flex;">
+      <button id="fxRed">🔴 Красный сигнал</button>
+      <button id="fxGreen">🟢 Зелёный сигнал</button>
+    </div>
+
+
+
+
+    <div id="hostFinalControls" style="display:none; gap:6px; margin-left:8px; display:inline-flex;">
+      <button id="btnTownWin">🏆 Победа Мирных</button>
+      <button id="btnMafiaWin">💀 Победа Мафии</button>
+    </div>
+
+    <div id="hostSoundboard" style="display:none; gap:6px; margin-left:8px; display:inline-flex;">
+      <button id="btnSfxGun">🔫 Выстрел</button>
+      <button id="btnSfxPulse">💓 Пульс</button>
+    </div>
+
+
+
+
+
+
+    <!-- ► SFX: звуки событий (положи свои файлы в /static/sfx/ и /static/music/) -->
+    <div id="sfx" aria-hidden="true" style="height:0; overflow:hidden">
+      <audio id="sfxKill"   src="/static/sfx/выстрел_пистолет.mp3"   preload="auto"></audio>
+      <audio id="sfxHeal"   src="/static/sfx/пульс-доктор.mp3"   preload="auto"></audio>
+      <audio id="sfxCheck"  src="/static/sfx/щелчок-комисар.mp3"  preload="auto"></audio>
+    </div>
+
+    <!-- ► ФИНАЛЬНЫЙ ОВЕРЛЕЙ -->
+    <div id="finalOverlay" class="final-overlay" style="display:none">
+      <div class="final-rays"></div>
+      <div class="final-card">
+        <div class="final-title" id="finalTitle"></div>
+        <div class="final-sub"   id="finalSub"></div>
+      </div>
+    </div>
+
   </div>
 
   {% if not current_user.is_authenticated %}

@@ -327,13 +327,93 @@ def on_announce_event(data):
     # разошлём всем
     socketio.emit("announce", {"type": ev_type, "slot": slot, "name": name or ""}, room=room_code)
 
+rooms_voting = {}
 
 
 
-if __name__ == "__main__":
-    socketio.run(app, debug=True)
+def votes_state(room):
+    data = rooms_voting.get(room, {"open": False, "votes": {}})
+    pairs = [{"voter": v, "target": t} for v, t in data["votes"].items()]
+    return {"pairs": pairs}
+
+@socketio.on("voting-start")
+def voting_start(data):
+    room = data.get("roomId")
+    rv = rooms_voting.setdefault(room, {"open": False, "votes": {}})
+    rv["open"] = True
+    rv["votes"].clear()
+    emit("voting-opened", to=room)
+    emit("votes-state", votes_state(room), to=room)
+
+@socketio.on("voting-stop")
+def voting_stop(data):
+    room = data.get("roomId")
+    rv = rooms_voting.setdefault(room, {"open": False, "votes": {}})
+    rv["open"] = False
+    # сводка
+    from collections import Counter
+    cnt = Counter(rv["votes"].values())  # target -> count
+    emit("voting-closed", to=room)
+    emit("votes-summary", {"counts": dict(cnt)}, to=room)
+
+@socketio.on("voting-add")
+def voting_add(data):
+    room   = data.get("roomId")
+    voter  = int(data.get("voter"))
+    target = int(data.get("target"))
+    rv = rooms_voting.setdefault(room, {"open": False, "votes": {}})
+    if not rv["open"]:
+        return
+    # один голос от избирателя (перезапишет, если меняет мнение)
+    rv["votes"][voter] = target
+    emit("votes-state", votes_state(room), to=room)
+
+@socketio.on("voting-remove")
+def voting_remove(data):
+    room   = data.get("roomId")
+    voter  = int(data.get("voter"))
+    rv = rooms_voting.setdefault(room, {"open": False, "votes": {}})
+    if voter in rv["votes"]:
+        rv["votes"].pop(voter)
+        emit("votes-state", votes_state(room), to=room)
+
+@socketio.on("voting-clear")
+def voting_clear(data):
+    room = data.get("roomId")
+    rv = rooms_voting.setdefault(room, {"open": False, "votes": {}})
+    rv["votes"].clear()
+    emit("votes-state", votes_state(room), to=room)
+
+
+
+@socketio.on("fx-signal")
+def fx_signal(data):
+    room = data.get("roomId")
+    color = data.get("color")   # "red" | "green"
+    emit("fx-trigger", {"color": color}, to=room)
+
+# ► финальная сцена
+@socketio.on("game-over")
+def game_over(data):
+    room   = data.get("roomId")
+    winner = data.get("winner")  # "town" | "mafia"
+    reason = data.get("reason", "")
+    emit("game-over-broadcast", {"winner": winner, "reason": reason}, to=room)
+
+
+
+@socketio.on("sfx-play")
+def sfx_play(data):
+    room = data.get("roomId")
+    sfx_type = data.get("type")  # "gunshot" | "pulse" | "check"
+    # (опционально можешь проверить, что отправитель — ведущий)
+    emit("sfx-play", {"type": sfx_type}, to=room)
+
 
 # if __name__ == "__main__":
-#     import eventlet
-#     import eventlet.wsgi
-#     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+#     socketio.run(app, debug=True)
+
+if __name__ == "__main__":
+    import eventlet
+    import eventlet.wsgi
+    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

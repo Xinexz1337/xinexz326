@@ -2,6 +2,29 @@
 const socket = io();
 const roomId = DEFAULT_ROOM;
 
+
+
+const hostSoundboard = document.getElementById("hostSoundboard");
+const btnSfxGun   = document.getElementById("btnSfxGun");
+const btnSfxPulse = document.getElementById("btnSfxPulse");
+
+
+const sfxKill  = document.getElementById("sfxKill");
+const sfxHeal  = document.getElementById("sfxHeal");
+const sfxCheck = document.getElementById("sfxCheck");
+const sfxHit   = document.getElementById("sfxHit");
+const sfxMiss  = document.getElementById("sfxMiss");
+
+const musicTown  = document.getElementById("musicTown");
+const musicMafia = document.getElementById("musicMafia");
+
+
+
+const finalOverlay = document.getElementById("finalOverlay");
+const finalTitle   = document.getElementById("finalTitle");
+const finalSub     = document.getElementById("finalSub");
+
+
 const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 
 let localStream = null;
@@ -13,6 +36,41 @@ const peers   = new Map();          // sid -> RTCPeerConnection
 const peerMeta= new Map();          // sid -> {name, slot}
 const modBySlot = new Map();        // slot -> null|"vote"|"expelled"|"killed"
 const nominatedSlots = new Set();   // для старой подсветки выставленных
+
+const hostFX = document.getElementById("hostFX");
+const fxRed  = document.getElementById("fxRed");
+const fxGreen= document.getElementById("fxGreen");
+
+
+const hostFinalControls = document.getElementById("hostFinalControls");
+const btnTownWin = document.getElementById("btnTownWin");
+const btnMafiaWin = document.getElementById("btnMafiaWin");
+
+
+
+
+// --- VOTING state ---
+let votingOpen = false;
+// votes: voter_slot -> target_slot
+const votes = new Map();
+// обратный индекс: target_slot -> [voter_slots]
+const votersByTarget = new Map();
+
+// элементы UI
+const hostVoting   = document.getElementById("hostVoting");
+const startVoting  = document.getElementById("startVoting");
+const stopVoting   = document.getElementById("stopVoting");
+const voteVoterSel = document.getElementById("voteVoter");
+const voteTargetSel= document.getElementById("voteTarget");
+const voteAddBtn   = document.getElementById("voteAdd");
+const voteRemoveBtn= document.getElementById("voteRemove");
+const votesClearBtn= document.getElementById("votesClear");
+
+
+
+
+
+
 
 /* ================== DOM SHORTCUTS ================== */
 const $ = (sel) => document.querySelector(sel);
@@ -156,6 +214,7 @@ function setCellStatus(slot, status){ // null | "vote" | "expelled" | "killed"
     cell.classList.add("is-vote");
     badge.textContent = "ВЫСТАВЛЕН";
     ctext.textContent = "ВЫСТАВЛЕН";
+    onCopCheckStart();
     return;
   }
 
@@ -329,7 +388,9 @@ function showAnnouncement(type, slot, name){
     "killed-doc":     { cls:"annc-doc",    title:"УБИЛИ ДОКТОРА" },
     "killed-cop":     { cls:"annc-cop",    title:"УБИЛИ КОМИССАРА" },
     "killed-town":    { cls:"annc-town",   title:"УБИЛИ МИРНОГО" },
-    "expelled-mafia": { cls:"annc-mafia",  title:"ВЫГНАНА МАФИЯ" }
+    "expelled-mafia": { cls:"annc-mafia",  title:"ВЫГНАНА МАФИЯ" },
+    "vote-start":    { cls:"annc-vote",   title:"ВРЕМЯ ГОЛОСОВАНИЯ" },
+    "vote-winner":   { cls:"annc-vote",   title:"ИТОГ ГОЛОСОВАНИЯ" }
   };
   const cfg = map[type] || { cls:"annc-town", title:"СОБЫТИЕ" };
 
@@ -342,7 +403,7 @@ function showAnnouncement(type, slot, name){
   globalAnnounce.appendChild(card);
 
   spawnConfetti(globalAnnounce, type);
-  setTimeout(()=>{ globalAnnounce.style.display="none"; globalAnnounce.innerHTML=""; }, 3000);
+  setTimeout(()=>{ globalAnnounce.style.display="none"; globalAnnounce.innerHTML=""; }, 4000);
 }
 
 function spawnConfetti(root, type){
@@ -385,6 +446,9 @@ socket.on("host-slot-busy", () => {
 socket.on("joined", async ({ selfId, slot, peers: existingPeers=[] }) => {
   myId = selfId;
   mySlot = slot;
+  hostFX.style.display = (slot === 12) ? "inline-flex" : "none";
+  hostSoundboard.style.display = (slot === 12) ? "inline-flex" : "none";
+  hostFinalControls.style.display = (slot === 12) ? "inline-flex" : "none";
 
   attachStreamToSlot(localStream, mySlot, true, "Вы");
   if (leaveBtn) leaveBtn.disabled = false;
@@ -395,6 +459,8 @@ socket.on("joined", async ({ selfId, slot, peers: existingPeers=[] }) => {
   if (togglePhaseBtn) togglePhaseBtn.style.display = isHost() ? "inline-block" : "none";
   if (hostTimerControls) hostTimerControls.style.display = isHost() ? "inline-flex" : "none";
   if (hostAnnounce) hostAnnounce.style.display = isHost() ? "inline-flex" : "none";
+
+  hostVoting.style.display = (slot === 12) ? "inline-flex" : "none";
 
   // заполнить список целей
   fillAnnounceTargets();
@@ -473,3 +539,270 @@ async function createPeerConnectionAndCall(remoteSid, remoteSlot, remoteName, is
   }
   return pc;
 }
+
+function fillVotingSelects() {
+  const opts = [];
+  for (let i=1;i<=12;i++){
+    // чаще всего ведущего (12) не голосуют; при желании оставь:
+    // if (i===12) continue;
+    const nameEl = document.getElementById(`name-${i}`);
+    const label = nameEl ? nameEl.textContent || `Слот ${i}` : `Слот ${i}`;
+    opts.push(`<option value="${i}">${i}: ${label}</option>`);
+  }
+  voteVoterSel.innerHTML  = opts.join("");
+  voteTargetSel.innerHTML = opts.join("");
+}
+
+function renderVotesUI(){
+  // сначала очистим старые элементы
+  for (let i=1;i<=12;i++){
+    const cell = document.querySelector(`.cell[data-slot="${i}"]`);
+    if (!cell) continue;
+    // remove old nodes
+    cell.querySelectorAll(".votes-count, .vote-bubbles").forEach(n=>n.remove());
+  }
+
+  if (!votingOpen) return;
+
+  // построим обратный индекс
+  votersByTarget.clear();
+  votes.forEach((tgt, voter)=>{
+    if (!votersByTarget.has(tgt)) votersByTarget.set(tgt, []);
+    votersByTarget.get(tgt).push(voter);
+  });
+
+  // отрисовка по слотам
+  for (let i=1;i<=12;i++){
+    const cell = document.querySelector(`.cell[data-slot="${i}"]`);
+    if (!cell) continue;
+
+    const list = votersByTarget.get(i) || [];
+    if (!list.length) continue;
+
+    // счётчик
+    const badge = document.createElement("div");
+    badge.className = "votes-count";
+    badge.textContent = `ГОЛОСОВ: ${list.length}`;
+    badge.style.display = "inline-block";
+    cell.appendChild(badge);
+
+    // столбик пузырьков
+    const stack = document.createElement("div");
+    stack.className = "vote-bubbles";
+    list
+      .sort((a,b)=>a-b)
+      .forEach((v, idx)=>{
+        const b = document.createElement("div");
+        b.className = `vote-bubble vote-color-${idx%8}`;
+        b.textContent = v;
+        stack.appendChild(b);
+      });
+    cell.appendChild(stack);
+  }
+}
+
+
+
+
+startVoting?.addEventListener("click", ()=>{
+  if (mySlot !== 12) return;
+  fillVotingSelects();
+  socket.emit("voting-start", { roomId });
+});
+
+stopVoting?.addEventListener("click", ()=>{
+  if (mySlot !== 12) return;
+  socket.emit("voting-stop", { roomId });
+});
+
+voteAddBtn?.addEventListener("click", ()=>{
+  if (mySlot !== 12 || !votingOpen) return;
+  const voter  = Number(voteVoterSel.value);
+  const target = Number(voteTargetSel.value);
+  if (!voter || !target || voter===target) return;
+  socket.emit("voting-add", { roomId, voter, target });
+});
+
+voteRemoveBtn?.addEventListener("click", ()=>{
+  if (mySlot !== 12 || !votingOpen) return;
+  const voter = Number(voteVoterSel.value);
+  if (!voter) return;
+  socket.emit("voting-remove", { roomId, voter });
+});
+
+votesClearBtn?.addEventListener("click", ()=>{
+  if (mySlot !== 12 || !votingOpen) return;
+  socket.emit("voting-clear", { roomId });
+});
+
+
+
+
+// сервер говорит: голосование включено
+socket.on("voting-opened", ()=>{
+  votingOpen = true;
+  votes.clear();
+  // баннер
+  showAnnouncement("vote-start", 0, "");
+  // переключаем кнопки
+  startVoting.style.display = "none";
+  stopVoting.style.display  = "inline-block";
+  renderVotesUI();
+});
+
+// сервер говорит: голосование выключено
+socket.on("voting-closed", ()=>{
+  votingOpen = false;
+  votes.clear();
+  startVoting.style.display = "inline-block";
+  stopVoting.style.display  = "none";
+  // можно показать финальную сводку, если пришла (ниже)
+  renderVotesUI();
+});
+
+// сервер шлёт актуальное состояние голосов
+socket.on("votes-state", ({ pairs })=>{
+  // pairs: [{voter: 3, target: 7}, ...]
+  votes.clear();
+  (pairs||[]).forEach(p=> votes.set(Number(p.voter), Number(p.target)));
+  renderVotesUI();
+});
+
+// финальная сводка (опционально)
+socket.on("votes-summary", ({ counts })=>{
+  // counts: { "1":3, "7":5, ... } — можно всплывашку показать
+  // тут — просто баннер с победившим
+  const entries = Object.entries(counts||{}).map(([slot,c])=>({slot:Number(slot),count:c}));
+  if (!entries.length) return;
+  entries.sort((a,b)=>b.count-a.count);
+  const top = entries[0];
+  showAnnouncement("vote-winner", top.slot, `ГОЛОСОВ: ${top.count}`);
+});
+
+
+
+
+
+// ведущий нажимает
+fxRed?.addEventListener("click", ()=>{ if (mySlot===12) socket.emit("fx-signal", {roomId, color:"red"}); });
+fxGreen?.addEventListener("click", ()=>{ if (mySlot===12) socket.emit("fx-signal", {roomId, color:"green"}); });
+
+// все получают эффект
+socket.on("fx-trigger", ({ color })=>{
+  triggerFX(color);
+});
+
+function triggerFX(color){
+  const overlay = document.createElement("div");
+  overlay.className = `fx-overlay fx-${color}`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>overlay.remove(), 1500);
+}
+
+
+
+
+function playAudio(el, {volume=1, restart=true}={}){
+  if (!el) return;
+  try {
+    if (restart) { el.currentTime = 0; }
+    el.volume = volume;
+    el.play().catch(()=>{ /* ignore */ });
+  } catch(e){}
+}
+function stopAudio(el){
+  try{ el.pause(); }catch(e){}
+}
+
+// пример: когда ты меняешь статус слота на "killed"
+function onSomeoneKilled(){
+  playAudio(sfxKill, {volume:0.4});
+}
+// пример: когда лечат
+function onSomeoneHealed(){
+  playAudio(sfxHeal, {volume:0.9});
+}
+// пример: комиссар проверил (короткий щелчок)
+function onCopCheckStart(){
+  playAudio(sfxCheck, {volume:0.7});
+}
+// результат проверки комиссара
+function onCopCheckResult(isMafia){
+  playAudio(isMafia ? sfxHit : sfxMiss, {volume:0.9});
+}
+
+
+
+function spawnFinalConfetti(palette=["#fff"]){
+  for (let i=0;i<60;i++){
+    const s = document.createElement("span");
+    s.className = "final-confetti";
+    s.style.background = palette[i % palette.length];
+    s.style.left = Math.random()*100 + "vw";
+    s.style.setProperty("--dx", (Math.random()*300-150) + "px");
+    s.style.width  = (6 + Math.random()*6) + "px";
+    s.style.height = (8 + Math.random()*10) + "px";
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(), 1700);
+  }
+}
+
+function stopFinalMusic(){
+  stopAudio(musicTown); stopAudio(musicMafia);
+}
+
+function showFinalScene({winner="town", reason=""}={}){
+  // winner: "town" | "mafia"
+  stopFinalMusic();
+
+  finalOverlay.classList.remove("town","mafia");
+  finalOverlay.classList.add(winner === "mafia" ? "mafia" : "town");
+
+  if (winner === "mafia"){
+    finalTitle.textContent = "МАФИЯ ПОБЕДИЛА";
+    finalSub.textContent   = reason ? reason : "Город пал…";
+    playAudio(musicMafia, {volume:0.8, restart:true});
+    spawnFinalConfetti(["#ef4444","#7f1d1d","#f59e0b"]);
+  } else {
+    finalTitle.textContent = "МИРНЫЕ ПОБЕДИЛИ";
+    finalSub.textContent   = reason ? reason : "Правосудие восторжествовало!";
+    playAudio(musicTown, {volume:0.8, restart:true});
+    spawnFinalConfetti(["#22c55e","#16a34a","#84cc16","#fde047"]);
+  }
+
+  finalOverlay.style.display = "flex";
+  // Скрытие по клику (если надо) — раскомментируй:
+  // finalOverlay.addEventListener("click", hideFinalScene, {once:true});
+}
+
+function hideFinalScene(){
+  finalOverlay.style.display = "none";
+  stopFinalMusic();
+}
+
+// Хост жмёт финал
+btnTownWin?.addEventListener("click", ()=>{
+  if (mySlot !== 12) return;
+  socket.emit("game-over", {roomId, winner:"town", reason:"Все мафы повешены"});
+});
+btnMafiaWin?.addEventListener("click", ()=>{
+  if (mySlot !== 12) return;
+  socket.emit("game-over", {roomId, winner:"mafia", reason:"Мафия взяла контроль"});
+});
+
+// Все получают финал
+socket.on("game-over-broadcast", ({winner, reason})=>{
+  showFinalScene({winner, reason});
+});
+
+btnSfxGun?.addEventListener("click",   () => { if (mySlot===12) socket.emit("sfx-play", {roomId, type:"gunshot"}); });
+btnSfxPulse?.addEventListener("click", () => { if (mySlot===12) socket.emit("sfx-play", {roomId, type:"pulse"});   });
+
+
+socket.on("sfx-play", ({type}) => {
+  if (type === "gunshot") {          // используй kill как «выстрел»
+    playAudio(sfxKill, {volume:0.5});
+  } else if (type === "pulse") {
+    playAudio(sfxHeal, {volume:0.5});
+  }
+});
