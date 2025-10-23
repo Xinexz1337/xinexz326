@@ -42,7 +42,7 @@
 }
 .cell {
   background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; overflow:hidden; position:relative;
-  display:flex; flex-direction:column;
+  display:flex; flex-direction:column; height: 300px;
 }
 .cell-header {
   font-size:14px; color:var(--muted); padding:6px 10px; background:rgba(0,0,0,0.25);

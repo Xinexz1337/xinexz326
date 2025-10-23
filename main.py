@@ -410,10 +410,10 @@ def sfx_play(data):
     emit("sfx-play", {"type": sfx_type}, to=room)
 
 
-# if __name__ == "__main__":
-#     socketio.run(app, debug=True)
-
 if __name__ == "__main__":
-    import eventlet
-    import eventlet.wsgi
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    socketio.run(app, debug=True)
+
+# if __name__ == "__main__":
+#     import eventlet
+#     import eventlet.wsgi
+#     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
